@@ -12,7 +12,7 @@ A web-based application for managing and searching microbiome sample data using 
   - Hierarchical Match
   - Abundance Filter
 
-## Tech Stack
+## Technology Used
 
 - **Backend**: FastAPI
 - **Frontend**: Streamlit
