@@ -87,7 +87,7 @@ with st.sidebar:
                     st.warning("Please fill in all fields")
     
     else:
-        st.success(f"👤 **{st.session_state.username}**")
+        st.success(f" **{st.session_state.username}**")
         if st.button("Logout", use_container_width=True):
             st.session_state.logged_in = False
             st.session_state.username = None
