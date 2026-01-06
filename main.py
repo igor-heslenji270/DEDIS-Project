@@ -191,7 +191,13 @@ else:
         # Strategy selector
         strategy = st.selectbox(
             "Select Search Strategy:",
-            ["Exact Match", "Approximate Match", "Hierarchical Match", "Abundance Filter"],
+            ["exact", "approximate", "hierarchical", "abundance"],
+            format_func=lambda x: {
+                "exact": "Exact Match",
+                "approximate": "Approximate Match", 
+                "hierarchical": "Hierarchical Match",
+                "abundance": "Abundance Filter"
+            }[x],
             help="Each strategy uses a different algorithm to find samples"
         )
         
@@ -203,36 +209,37 @@ else:
         # Additional parameters for abundance filter
         min_abundance = 0.0
         max_abundance = 100.0
-        if strategy == "Abundance Filter":
+        if strategy == "abundance":
             with col2:
                 min_abundance = st.number_input("Min Abundance (%)", 0.0, 100.0, 0.0)
                 max_abundance = st.number_input("Max Abundance (%)", 0.0, 100.0, 100.0)
         
         if st.button("Search", use_container_width=True):
-            if search_query or strategy == "Abundance Filter":
+            if search_query or strategy == "abundance":
                 try:
-                    # Call different endpoints based on strategy
-                    if strategy == "Exact Match":
-                        response = requests.get(f"{API_URL}/search/exact", params={"query": search_query})
-                    elif strategy == "Approximate Match":
-                        response = requests.get(f"{API_URL}/search/approximate", params={"query": search_query})
-                    elif strategy == "Hierarchical Match":
-                        response = requests.get(f"{API_URL}/search/hierarchical", params={"query": search_query})
-                    else:  # Abundance Filter
-                        response = requests.get(
-                            f"{API_URL}/search/abundance",
-                            params={
-                                "query": search_query,
-                                "min_abundance": min_abundance,
-                                "max_abundance": max_abundance
-                            }
-                        )
+                    # Single API endpoint with strategy parameter
+                    response = requests.get(
+                        f"{API_URL}/search",
+                        params={
+                            "query": search_query,
+                            "strategy": strategy,
+                            "min_abundance": min_abundance,
+                            "max_abundance": max_abundance
+                        }
+                    )
                     
                     if response.status_code == 200:
                         results = response.json()
                         
                         if results:
-                            st.success(f"Found {len(results)} samples using **{strategy}**")
+                            strategy_name = {
+                                "exact": "Exact Match",
+                                "approximate": "Approximate Match",
+                                "hierarchical": "Hierarchical Match",
+                                "abundance": "Abundance Filter"
+                            }[strategy]
+                            
+                            st.success(f"Found {len(results)} samples using **{strategy_name}**")
                             
                             for sample in results:
                                 with st.container():
@@ -246,11 +253,14 @@ else:
                                     st.divider()
                         else:
                             st.info("No samples found")
+                    else:
+                        st.error(f"Search failed: {response.json().get('detail', 'Unknown error')}")
                 except Exception as e:
                     st.error(f"Search error: {e}")
             else:
                 st.warning("Please enter a search term")
         
+        # Explanation of strategies
         with st.expander("About Search Strategies"):
             st.markdown("""
             **Strategy Pattern** allows you to define different algorithms and switch between them at runtime.
@@ -261,5 +271,7 @@ else:
             - **Hierarchical Match**: Searches by taxonomy hierarchy (e.g., "Bacteria;Proteobacteria")
             - **Abundance Filter**: Filters samples by abundance range and optional taxonomy
             
-            Each strategy implements the same interface but uses a different algorithm!
+            All strategies are accessed through a **single API endpoint** (`/search`) with the strategy 
+            selected at runtime via the `strategy` parameter. This demonstrates the true Strategy pattern 
+            where different algorithms are hidden behind a unified interface.
             """)

@@ -25,7 +25,7 @@ def get_db():
         db.close()
 
 
-# ============= USER ENDPOINTS =============
+
 
 @app.post("/users/", response_model=schemas.UserOut)
 def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
@@ -56,7 +56,7 @@ def login_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     return {"message": "Login successful", "user_id": db_user.id, "username": user.username}
 
 
-# ============= SAMPLE ENDPOINTS (New Functionality) =============
+
 
 @app.post("/samples/", response_model=schemas.SampleOut)
 def create_sample(sample: schemas.SampleCreate, user_id: int, db: Session = Depends(get_db)):
@@ -106,44 +106,37 @@ def delete_sample(sample_id: int, user_id: int, db: Session = Depends(get_db)):
     return {"message": "Sample deleted successfully"}
 
 
-# ============= SEARCH ENDPOINTS (Strategy Pattern) =============
-
-@app.get("/search/exact", response_model=List[schemas.SampleOut])
-def search_exact(query: str, db: Session = Depends(get_db)):
-    """Search using exact match strategy"""
-    samples = db.query(models.Sample).all()
-    context = SearchContext(ExactMatchStrategy())
-    results = context.execute_search(query, samples)
-    return results
 
 
-@app.get("/search/approximate", response_model=List[schemas.SampleOut])
-def search_approximate(query: str, db: Session = Depends(get_db)):
-    """Search using approximate match strategy"""
-    samples = db.query(models.Sample).all()
-    context = SearchContext(ApproximateMatchStrategy())
-    results = context.execute_search(query, samples)
-    return results
-
-
-@app.get("/search/hierarchical", response_model=List[schemas.SampleOut])
-def search_hierarchical(query: str, db: Session = Depends(get_db)):
-    """Search using hierarchical taxonomy match strategy"""
-    samples = db.query(models.Sample).all()
-    context = SearchContext(HierarchicalMatchStrategy())
-    results = context.execute_search(query, samples)
-    return results
-
-
-@app.get("/search/abundance", response_model=List[schemas.SampleOut])
-def search_by_abundance(
-    query: str = "", 
-    min_abundance: float = 0.0, 
+@app.get("/search", response_model=List[schemas.SampleOut])
+def search_samples(
+    query: str,
+    strategy: str = "exact",  # Strategy selector: "exact", "approximate", "hierarchical", "abundance"
+    min_abundance: float = 0.0,
     max_abundance: float = 100.0,
     db: Session = Depends(get_db)
 ):
-    """Search using abundance filter strategy"""
+    """
+    Unified search endpoint demonstrating Strategy Pattern.
+    Strategy is selected at runtime based on the 'strategy' parameter.
+    """
+    # Get all samples from database
     samples = db.query(models.Sample).all()
-    context = SearchContext(AbundanceFilterStrategy(min_abundance, max_abundance))
+    
+    # Select strategy based on parameter
+    if strategy == "exact":
+        search_strategy = ExactMatchStrategy()
+    elif strategy == "approximate":
+        search_strategy = ApproximateMatchStrategy()
+    elif strategy == "hierarchical":
+        search_strategy = HierarchicalMatchStrategy()
+    elif strategy == "abundance":
+        search_strategy = AbundanceFilterStrategy(min_abundance, max_abundance)
+    else:
+        raise HTTPException(status_code=400, detail=f"Invalid strategy: {strategy}. Valid options: exact, approximate, hierarchical, abundance")
+    
+    # Execute search using selected strategy
+    context = SearchContext(search_strategy)
     results = context.execute_search(query, samples)
+    
     return results
